@@ -1,0 +1,10 @@
+{
+    "displayName": "Better AI",
+    "description": "Makes the enemy AI in Mindustry actually threatening.",
+    "version": "v1.0",
+    "minGameVersion": "146",
+    "author": "PyGuy",
+    "java": true,
+    "main": "betterai.BetterAI",
+    "subtitle": "Skill issue."
+}
