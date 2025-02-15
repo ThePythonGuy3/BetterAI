@@ -1,0 +1,78 @@
+{
+    "customJson":
+    {
+        "data":
+        {
+            "dagger": "frontline",
+            "mace": "squad-follower",
+            "fortress": "frontline",
+            "scepter": "destroyer",
+            "reign": "destroyer",
+
+            "nova": "defender",
+            "pulsar": "defender",
+            "quasar": "defender",
+            "vela": "frontline-heal",
+            "corvus": "frontline-heal",
+
+            "crawler": "destroyer",
+            "atrax": "squad-follower",
+            "spiroct": "squad-follower",
+            "arkyid": "squad-lead",
+            "toxopid": "destroyer",
+
+            "flare": "frontline",
+            "horizon": "squad-follower",
+            "zenith": "squad-lead",
+            "antumbra": "destroyer",
+            "eclipse": "destroyer",
+
+            "mono": "defender",
+            "poly": "defender",
+            "mega": "defender",
+            "quad": "frontline-heal", //but also defender...
+            "oct": "frontline-heal", //but also defender...
+
+            "risso": "squad-follower",
+            "minke": "squad-lead",
+            "bryde": "frontline",
+            "sei": "destroyer",
+            "omura": "destroyer",
+
+            "retusa": "defender",
+            "oxynoe": "defender",
+            "cyerce": "frontline-heal",
+            "aegires": "frontline-heal",
+            "navanax": "defender",
+
+            "alpha": "defender",
+            "beta": "defender",
+            "gamma": "defender",
+
+            "stell": "squad-follower",
+            "locus": "squad-follower",
+            "precept": "squad-lead",
+            "vanquish": "squad-lead",
+            "conquer": "destroyer",
+
+            "merui": "squad-follower",
+            "cleroi": "squad-follower",
+            "anthicus": "squad-follower",
+            "tecta": "squad-lead",
+            "collaris": "squad-lead",
+
+            "elude": "squad-follower",
+            "avert": "squad-follower",
+            "obviate": "squad-follower",
+            "quell": "squad-lead",
+            "disrupt": "squad-lead",
+
+            "renale": "frontline",
+            "latum": "frontline",
+
+            "evoke": "defender",
+            "incite": "defender",
+            "emanate": "defender",
+        }
+    }
+}

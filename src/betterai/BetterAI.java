@@ -1,10 +1,12 @@
 package betterai;
 
-import arc.Events;
+import arc.*;
+import arc.graphics.Texture;
 import betterai.algorithm.*;
 import betterai.log.BLog;
+import betterai.overlay.Overlays;
 import mindustry.Vars;
-import mindustry.game.*;
+import mindustry.game.EventType;
 import mindustry.mod.*;
 
 public class BetterAI extends Mod
@@ -32,14 +34,16 @@ public class BetterAI extends Mod
                 BLog.info("CustomJsonLib is enabled.");
             }
 
-            ContentScore.GenerateScores();
-        });
+            ContentScore.Initialize();
+            UnitRoles.Initialize();
+            Overlays.Initialize();
 
-        Events.on(EventType.WorldLoadEvent.class, event -> {
-            /*for (Team team : BlockScore.PresentTeams())
-            {*/
-            new MapScore(Team.sharded).EvaluateEntireMap();
-            //}
+            Core.settings.put("linear", false);
+            for (Texture tex : Core.atlas.getTextures())
+            {
+                Texture.TextureFilter filter = Texture.TextureFilter.nearest;
+                tex.setFilter(filter, filter);
+            }
         });
     }
 

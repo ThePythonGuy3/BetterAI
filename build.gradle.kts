@@ -105,6 +105,12 @@ project(":"){
             meta
         )
 
+        from(files(layout.projectDirectory.dir("content")))
+        {
+            into("content")
+        }
+
+
         metaInf.from(layout.projectDirectory.file("LICENSE"))
         doFirst{
             // Deliberately check if the mod meta is actually written in HJSON, since, well, some people actually use

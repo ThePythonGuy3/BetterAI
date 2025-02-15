@@ -6,5 +6,8 @@
     "author": "PyGuy",
     "java": true,
     "main": "betterai.BetterAI",
+    "dependencies": [
+        "pyguy.jsonlib"
+    ],
     "subtitle": "Skill issue."
 }

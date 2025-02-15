@@ -1,36 +1,51 @@
 package betterai.algorithm;
 
 import arc.struct.*;
+import arc.util.serialization.JsonValue;
 import betterai.BetterAI;
 import betterai.log.BLog;
 import mindustry.Vars;
 import mindustry.content.TechTree;
 import mindustry.entities.bullet.BulletType;
 import mindustry.type.*;
+import mindustry.world.Block;
 import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.blocks.environment.*;
 import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.blocks.production.*;
 import mindustry.world.consumers.*;
+import pyguy.jsonlib.JsonLibWrapper;
 
 public class ContentScore
 {
     private static final float[] itemScores = new float[Vars.content.items().size];
     private static final float[] liquidScores = new float[Vars.content.liquids().size];
+    private static final float[] blockScores = new float[Vars.content.blocks().size];
 
     private static final ObjectMap<Item, Seq<GenericCrafter>> itemProducers = new ObjectMap<>();
-    private static final ObjectMap<Item, Integer> itemCraftingDepths = new ObjectMap<>();
     private static final ObjectMap<Item, Seq<Item>> itemCraftingPaths = new ObjectMap<>();
     private static final boolean[] visitedItemRoot = new boolean[Vars.content.items().size];
 
     private static float threshold = 0f;
 
-    public static void GenerateScores()
+    public static float GetItemScore(Item item)
+    {
+        return itemScores[item.id];
+    }
+
+    public static float GetLiquidScore(Liquid liquid)
+    {
+        return liquidScores[liquid.id];
+    }
+
+    public static void Initialize()
     {
         GenerateItemLiquidScores();
+        GenerateBlockScores();
 
         NormalizeScores(itemScores);
         NormalizeScores(liquidScores);
+        NormalizeScores(blockScores);
 
         if (BetterAI.debug)
         {
@@ -41,6 +56,12 @@ public class ContentScore
             }
 
             BLog.info("----------Liquid scores----------");
+            for (int i = 0; i < liquidScores.length; i++)
+            {
+                BLog.info(Vars.content.liquid(i).localizedName, "->", liquidScores[i]);
+            }
+
+            BLog.info("----------Block scores----------");
             for (int i = 0; i < liquidScores.length; i++)
             {
                 BLog.info(Vars.content.liquid(i).localizedName, "->", liquidScores[i]);
@@ -276,6 +297,25 @@ public class ContentScore
         }
     }
 
+    private static void GenerateBlockScores()
+    {
+        JsonValue scoringTypes = JsonLibWrapper.GetRawField("betterai-vanilla-blocks-score-type", "data");
+
+        for (Block block : Vars.content.blocks())
+        {
+            BlockScoreType scoreType = BlockScoreType.base;
+            if (scoringTypes != null && scoringTypes.has(block.name))
+            {
+                scoreType = BlockScoreType.valueOf(scoringTypes.getString(block.name));
+            }
+        }
+    }
+
+    private static void SetBlockScore(Block block, float score)
+    {
+        blockScores[block.id] = score;
+    }
+
     // Normalize the scores to a 0-100 scale
     private static void NormalizeScores(float[] scores)
     {
@@ -293,5 +333,11 @@ public class ContentScore
         {
             scores[i] = (int) ((scores[i] / maxScore) * 100 * 1000) / 1000f;
         }
+    }
+
+    private enum BlockScoreType
+    {
+        base,
+        two
     }
 }
