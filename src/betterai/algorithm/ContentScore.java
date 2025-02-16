@@ -334,8 +334,13 @@ public class ContentScore
 
     private enum BlockScoreType
     {
-        base,
-        two,
-        none // Score manually set via json
+        wall, // Only cares about health
+        powerdistributor, // Low base priority, depends on grid priority
+        storage, // Medium base priority, increases with current storage amount and average item value
+        logic, // Very low priority
+        core, // Medium priority, main target of units with the role of destroyer or frontline
+        defense, // High priority, should not be used for turrets since those are handled automatically. If your block's purpose is to attack units and is not a turret, use this
+        ignore, // Priority of 0
+        manual // Score manually set via json
     }
 }
