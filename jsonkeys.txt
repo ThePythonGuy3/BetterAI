@@ -1,0 +1,3 @@
+betterai-unit-role [ "defender", "destroyer", "frontline", "frontline-heal", "squad-lead", "squad-follower" ]
+betterai-block-score-type [ TODO add types ]
+betterai-block-score-value int [ 0 - 100 ] *optional*

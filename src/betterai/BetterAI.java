@@ -1,7 +1,6 @@
 package betterai;
 
-import arc.*;
-import arc.graphics.Texture;
+import arc.Events;
 import betterai.algorithm.*;
 import betterai.log.BLog;
 import betterai.overlay.Overlays;
@@ -37,19 +36,6 @@ public class BetterAI extends Mod
             ContentScore.Initialize();
             UnitRoles.Initialize();
             Overlays.Initialize();
-
-            Core.settings.put("linear", false);
-            for (Texture tex : Core.atlas.getTextures())
-            {
-                Texture.TextureFilter filter = Texture.TextureFilter.nearest;
-                tex.setFilter(filter, filter);
-            }
         });
-    }
-
-    @Override
-    public void loadContent()
-    {
-
     }
 }

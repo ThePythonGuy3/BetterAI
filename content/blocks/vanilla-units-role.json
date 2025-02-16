@@ -30,8 +30,8 @@
             "mono": "defender",
             "poly": "defender",
             "mega": "defender",
-            "quad": "frontline-heal", //but also defender...
-            "oct": "frontline-heal", //but also defender...
+            "quad": "frontline-heal",
+            "oct": "frontline-heal",
 
             "risso": "squad-follower",
             "minke": "squad-lead",

@@ -1,7 +1,6 @@
 package betterai.algorithm;
 
 import arc.struct.*;
-import arc.util.serialization.JsonValue;
 import betterai.BetterAI;
 import betterai.log.BLog;
 import mindustry.Vars;
@@ -14,7 +13,6 @@ import mindustry.world.blocks.environment.*;
 import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.blocks.production.*;
 import mindustry.world.consumers.*;
-import pyguy.jsonlib.JsonLibWrapper;
 
 public class ContentScore
 {
@@ -79,7 +77,14 @@ public class ContentScore
         Vars.content.blocks().each(block -> {
             if (!(block instanceof Prop))
             {
-                if (!(block instanceof Floor))
+                if (block instanceof Floor floor)
+                {
+                    if (floor.liquidDrop != null)
+                    {
+                        liquidScores[floor.liquidDrop.id] += floor.liquidDrop.coolant ? 2 : 1;
+                    }
+                }
+                else
                 {
                     // Maximum value any item can take as score, increased by 3 for each placeable block in the game.
                     threshold += 3f;
@@ -101,63 +106,72 @@ public class ContentScore
                             }
                         }
                     }
-                }
 
-                // Add the block's item and liquid consumers to the item and liquid scores
-                if (block.hasConsumers)
-                {
-                    float multiplier = 1f;
-
-                    if (block instanceof GenericCrafter genericCrafter)
-                        multiplier += (genericCrafter.craftTime / 60f) * 0.5f;
-
-                    if (block instanceof WallCrafter wallCrafter)
-                        multiplier += (wallCrafter.drillTime / 60f) * 0.1f;
-
-                    for (Consume consume : block.consumers)
+                    // Add the block's item and liquid consumers to the item and liquid scores
+                    if (block.hasConsumers)
                     {
-                        if (consume instanceof ConsumeItems consumeItem)
+                        float multiplier = 1f;
+
+                        if (block instanceof GenericCrafter genericCrafter)
+                            multiplier += (genericCrafter.craftTime / 60f) * 0.5f;
+
+                        if (block instanceof WallCrafter wallCrafter)
+                            multiplier += (wallCrafter.drillTime / 60f) * 0.1f;
+
+                        for (Consume consume : block.consumers)
                         {
-                            for (ItemStack stack : consumeItem.items)
+                            if (consume instanceof ConsumeItems consumeItem)
                             {
-                                itemScores[stack.item.id] += Math.min(100, (1f / stack.amount) * (consumeItem.booster ? 0.25f : 1f) * multiplier);
-                            }
-                        }
-                        else if (consume instanceof ConsumeLiquids consumeLiquids)
-                        {
-                            for (LiquidStack stack : consumeLiquids.liquids)
-                            {
-                                liquidScores[stack.liquid.id] += Math.min(100, (1f / stack.amount) * (consumeLiquids.booster ? 0.25f : 1f) * multiplier);
-                            }
-                        }
-                        else if (consume instanceof ConsumeItemFilter consumeItemFilter)
-                        {
-                            if (block instanceof ConsumeGenerator consumeGenerator)
-                            {
-                                for (Item item : Vars.content.items())
+                                for (ItemStack stack : consumeItem.items)
                                 {
-                                    if (consumeItemFilter.filter.get(item))
+                                    itemScores[stack.item.id] += Math.min(100, (1f / stack.amount) * (consumeItem.booster ? 0.25f : 1f) * multiplier);
+                                }
+                            }
+                            else if (consume instanceof ConsumeLiquids consumeLiquids)
+                            {
+                                for (LiquidStack stack : consumeLiquids.liquids)
+                                {
+                                    liquidScores[stack.liquid.id] += Math.min(100, (1f / stack.amount) * (consumeLiquids.booster ? 0.25f : 1f) * multiplier);
+                                }
+                            }
+                            else if (consume instanceof ConsumeItemFilter consumeItemFilter)
+                            {
+                                if (block instanceof ConsumeGenerator consumeGenerator)
+                                {
+                                    for (Item item : Vars.content.items())
                                     {
-                                        itemScores[item.id] += 1f / (consumeGenerator.itemDuration / 60f) * 3f;
+                                        if (consumeItemFilter.filter.get(item))
+                                        {
+                                            itemScores[item.id] += 1f / (consumeGenerator.itemDuration / 60f) * 3f;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                // Calculate the block scores based on the block's ammo if the block is a turret
-                if (block instanceof ItemTurret itemTurret)
-                {
-                    for (Item item : itemTurret.ammoTypes.keys())
+                    // Calculate the block scores based on the block's ammo if the block is a turret
+                    if (block instanceof ItemTurret itemTurret)
                     {
-                        BulletType type = itemTurret.ammoTypes.get(item);
-                        float itemsPerShot = (1f / type.ammoMultiplier);
-                        if (!type.heals()) itemScores[item.id] += itemsPerShot * type.damage / 2f;
-                        while (type.fragBullet != null)
+                        for (Item item : itemTurret.ammoTypes.keys())
                         {
-                            itemScores[item.id] += itemsPerShot * (type.fragBullets * type.fragBullet.damage) / 2f;
-                            type = type.fragBullet;
+                            BulletType type = itemTurret.ammoTypes.get(item);
+                            float itemsPerShot = (1f / type.ammoMultiplier);
+                            if (!type.heals()) itemScores[item.id] += itemsPerShot * type.damage / 2f;
+                            while (type.fragBullet != null)
+                            {
+                                itemScores[item.id] += itemsPerShot * (type.fragBullets * type.fragBullet.damage) / 2f;
+                                type = type.fragBullet;
+                            }
+                        }
+                    }
+
+                    // Add the block to the item producer table of all the items it outputs
+                    if (block instanceof GenericCrafter genericCrafter && genericCrafter.hasConsumers && genericCrafter.outputsItems())
+                    {
+                        for (ItemStack stack : genericCrafter.outputItems)
+                        {
+                            itemProducers.get(stack.item).add(genericCrafter);
                         }
                     }
                 }
@@ -166,23 +180,6 @@ public class ContentScore
                 if (block.itemDrop != null)
                 {
                     itemScores[block.itemDrop.id] += block.itemDrop.hardness * block.itemDrop.cost;
-                }
-
-                if (block instanceof Floor floor)
-                {
-                    if (floor.liquidDrop != null)
-                    {
-                        liquidScores[floor.liquidDrop.id] += floor.liquidDrop.coolant ? 2 : 1;
-                    }
-                }
-
-                // Add the block to the item producer table of all the items it outputs
-                if (block instanceof GenericCrafter genericCrafter && genericCrafter.hasConsumers && genericCrafter.outputsItems())
-                {
-                    for (ItemStack stack : genericCrafter.outputItems)
-                    {
-                        itemProducers.get(stack.item).add(genericCrafter);
-                    }
                 }
             }
         });
@@ -299,7 +296,7 @@ public class ContentScore
 
     private static void GenerateBlockScores()
     {
-        JsonValue scoringTypes = JsonLibWrapper.GetRawField("betterai-vanilla-blocks-score-type", "data");
+        /*JsonValue scoringTypes = JsonLibWrapper.GetRawField("betterai-vanilla-blocks-score-type", "data");
 
         for (Block block : Vars.content.blocks())
         {
@@ -308,7 +305,7 @@ public class ContentScore
             {
                 scoreType = BlockScoreType.valueOf(scoringTypes.getString(block.name));
             }
-        }
+        }*/
     }
 
     private static void SetBlockScore(Block block, float score)
@@ -338,6 +335,7 @@ public class ContentScore
     private enum BlockScoreType
     {
         base,
-        two
+        two,
+        none // Score manually set via json
     }
 }
