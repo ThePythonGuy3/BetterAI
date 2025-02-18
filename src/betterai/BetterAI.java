@@ -10,7 +10,6 @@ import mindustry.mod.*;
 
 public class BetterAI extends Mod
 {
-    public static boolean jsonLibEnabled = false;
     public static boolean debug = false;
 
     public BetterAI()
@@ -26,15 +25,9 @@ public class BetterAI extends Mod
         debug = Vars.player.name.equals("PyGuy");
 
         Events.on(EventType.ClientLoadEvent.class, event -> {
-            Mods.LoadedMod jsonLib = Vars.mods.getMod("pyguy.jsonlib");
-            if (jsonLib != null && jsonLib.enabled())
-            {
-                jsonLibEnabled = true;
-                BLog.info("CustomJsonLib is enabled.");
-            }
-
             ContentScore.Initialize();
             UnitRoles.Initialize();
+
             Overlays.Initialize();
         });
     }

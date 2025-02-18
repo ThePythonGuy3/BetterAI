@@ -1,30 +1,37 @@
 package betterai.algorithm;
 
 import arc.struct.*;
+import arc.util.serialization.JsonValue;
 import betterai.BetterAI;
 import betterai.log.BLog;
 import mindustry.Vars;
-import mindustry.content.TechTree;
+import mindustry.content.*;
 import mindustry.entities.bullet.BulletType;
 import mindustry.type.*;
 import mindustry.world.Block;
+import mindustry.world.blocks.defense.Wall;
 import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.blocks.environment.*;
 import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.blocks.production.*;
 import mindustry.world.consumers.*;
+import pyguy.jsonlib.JsonLibWrapper;
 
 public class ContentScore
 {
-    private static final float[] itemScores = new float[Vars.content.items().size];
-    private static final float[] liquidScores = new float[Vars.content.liquids().size];
-    private static final float[] blockScores = new float[Vars.content.blocks().size];
+    private static float[] itemScores;
+    private static float[] liquidScores;
+    private static float[] blockScores;
 
     private static final ObjectMap<Item, Seq<GenericCrafter>> itemProducers = new ObjectMap<>();
     private static final ObjectMap<Item, Seq<Item>> itemCraftingPaths = new ObjectMap<>();
-    private static final boolean[] visitedItemRoot = new boolean[Vars.content.items().size];
+    private static boolean[] visitedItemRoot;
 
-    private static float threshold = 0f;
+    private static float itemLiquidScoreCapValue = 0f; // Liquids basically never reach this value, but just in case
+
+    private static BlockScoreType[] blockScoreTypes;
+
+    private static float batteryCapacity = 0f;
 
     public static float GetItemScore(Item item)
     {
@@ -36,13 +43,36 @@ public class ContentScore
         return liquidScores[liquid.id];
     }
 
+    public static float GetBlockScore(Block block)
+    {
+        return blockScores[block.id];
+    }
+
+    public static BlockScoreType GetBlockScoreType(Block block)
+    {
+        return blockScoreTypes[block.id];
+    }
+
     public static void Initialize()
     {
+        itemScores = new float[Vars.content.items().size];
+        liquidScores = new float[Vars.content.liquids().size];
+        blockScores = new float[Vars.content.blocks().size];
+
+        visitedItemRoot = new boolean[Vars.content.items().size];
+        blockScoreTypes = new BlockScoreType[Vars.content.blocks().size];
+
+        for (Consume consume : Blocks.battery.consumers)
+        {
+            if (consume instanceof ConsumePower consumePower)
+            {
+                batteryCapacity += consumePower.capacity;
+            }
+        }
+
         GenerateItemLiquidScores();
         GenerateBlockScores();
 
-        NormalizeScores(itemScores);
-        NormalizeScores(liquidScores);
         NormalizeScores(blockScores);
 
         if (BetterAI.debug)
@@ -87,7 +117,7 @@ public class ContentScore
                 else
                 {
                     // Maximum value any item can take as score, increased by 3 for each placeable block in the game.
-                    threshold += 3f;
+                    itemLiquidScoreCapValue += 3f;
 
                     // Add the block's item requirements to the item scores
                     for (ItemStack stack : block.requirements)
@@ -213,12 +243,12 @@ public class ContentScore
         // Cap the scores at the threshold
         for (int i = 0; i < itemScores.length; i++)
         {
-            itemScores[i] = Math.min(threshold, itemScores[i]);
+            itemScores[i] = Math.min(itemLiquidScoreCapValue, itemScores[i]);
         }
 
         for (int i = 0; i < liquidScores.length; i++)
         {
-            liquidScores[i] = Math.min(threshold, liquidScores[i]);
+            liquidScores[i] = Math.min(itemLiquidScoreCapValue, liquidScores[i]);
         }
 
         // Add scores for items depending on the items required to craft them
@@ -236,6 +266,9 @@ public class ContentScore
         }
 
         System.arraycopy(newItemScores, 0, itemScores, 0, itemScores.length);
+
+        NormalizeScores(itemScores);
+        NormalizeScores(liquidScores);
     }
 
     // Get the crafting depth of an item (aka how many crafters are required in a chain to craft it)
@@ -296,21 +329,77 @@ public class ContentScore
 
     private static void GenerateBlockScores()
     {
-        /*JsonValue scoringTypes = JsonLibWrapper.GetRawField("betterai-vanilla-blocks-score-type", "data");
+        JsonValue scoringTypes = JsonLibWrapper.GetRawField("betterai-vanilla-blocks-score-type", "data");
 
         for (Block block : Vars.content.blocks())
         {
-            BlockScoreType scoreType = BlockScoreType.base;
+            BlockScoreType scoreType = BlockScoreType.automatic;
             if (scoringTypes != null && scoringTypes.has(block.name))
             {
                 scoreType = BlockScoreType.valueOf(scoringTypes.getString(block.name));
+            } else
+            {
+                String moddedScoreType = JsonLibWrapper.GetStringField(block.name, "betterai-block-score-type");
+
+                if (moddedScoreType != null)
+                {
+                    scoreType = BlockScoreType.valueOf(moddedScoreType);
+                }
             }
-        }*/
+
+            blockScoreTypes[block.id] = scoreType;
+        }
     }
 
-    private static void SetBlockScore(Block block, float score)
+    private static float GetBlockBaseScore(Block block, BlockScoreType scoreType)
     {
-        blockScores[block.id] = score;
+        return Math.min(100, switch (scoreType)
+        {
+            case wall -> (block.health <= 0 ? block.scaledHealth * block.size * block.size : block.health) / 400f;
+            case powerdistributor -> {
+                if (block.hasPower)
+                {
+                    float capacity = 0;
+                    for (Consume consume : block.consumers)
+                    {
+                        if (consume instanceof ConsumePower consumePower)
+                        {
+                            if (consumePower.buffered)
+                            {
+                                capacity += consumePower.capacity;
+                            }
+                        }
+                    }
+
+                    yield (capacity / batteryCapacity) * 10f; // One battery has a score of 10
+                }
+                else
+                {
+                    yield 0;
+                }
+            }
+            case storage -> {
+                float baseScore = 0f;
+                if (block.hasItems) baseScore += ((float) block.itemCapacity / Blocks.vault.itemCapacity) * 5f;
+                if (block.hasLiquids) baseScore += (block.liquidCapacity / Blocks.liquidContainer.liquidCapacity) * 2f;
+
+                yield baseScore;
+            }
+            case logic -> 1; // Who uses logic blocks anyway
+            case core -> 50;
+            case defense -> 60;
+            case ignore, manual -> 0;
+            case automatic -> {
+                float baseScore = 0f;
+
+                if (block instanceof Wall wall)
+                {
+                    baseScore *= (1f - wall.lightningChance) * (1f - wall.chanceDeflect);
+                }
+
+                yield baseScore;
+            }
+        });
     }
 
     // Normalize the scores to a 0-100 scale
@@ -326,21 +415,32 @@ public class ContentScore
             }
         }
 
+        if (maxScore == 0) return; // How this could possibly happen is beyond me
+
         for (int i = 0; i < scores.length; i++)
         {
             scores[i] = (int) ((scores[i] / maxScore) * 100 * 1000) / 1000f;
         }
     }
 
-    private enum BlockScoreType
+    public enum BlockScoreType
     {
-        wall, // Only cares about health
-        powerdistributor, // Low base priority, depends on grid priority
-        storage, // Medium base priority, increases with current storage amount and average item value
-        logic, // Very low priority
-        core, // Medium priority, main target of units with the role of destroyer or frontline
+        wall, // Depends on health
+        powerdistributor, // Depends on power capacity
+        storage, // Depends on item and liquid capacity
+        logic, // Score of 1
+        core, // Medium priority
         defense, // High priority, should not be used for turrets since those are handled automatically. If your block's purpose is to attack units and is not a turret, use this
         ignore, // Priority of 0
-        manual // Score manually set via json
+        manual, // Score manually set via json
+        automatic // INTERNAL USE ONLY
+    }
+
+    public enum BlockDynamicScoreType
+    {
+        powerGrid, // Priority increases on the importance of the power grid it's attached to
+        itemGraph, // Priority increases on the importance of the blocks it provides items to
+        single, // Priority is calculated based on the building's own stats
+        constant // Priority does not change based on the building's stats or environment
     }
 }

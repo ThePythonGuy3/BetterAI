@@ -57,8 +57,6 @@ public class TargetOverlay extends BaseOverlay
                     }
                 }
             }
-
-            Draw.flush();
         });
     }
 }

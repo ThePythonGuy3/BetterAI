@@ -25,12 +25,10 @@ public class UnitRoleOverlay extends BaseOverlay
                 if (unit != null)
                 {
                     UnitType type = unit.type();
-                    float size = Math.min(Math.min(16, type.hitSize), 64 / Vars.renderer.getDisplayScale());
+                    float size = Math.min(Math.min(16, type.hitSize * 0.8f), 64 / Vars.renderer.getDisplayScale());
                     Draw.rect(UnitRoles.GetIcon(type), unit.x(), unit.y()/* + Math.min(unit.type().selectionSize, unit.type().hitSize)*/, size, size);
                 }
             }
-
-            Draw.flush();
         });
     }
 }
