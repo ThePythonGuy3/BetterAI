@@ -1,31 +1,40 @@
 package betterai.algorithm;
 
+import arc.math.Mathf;
 import arc.struct.*;
 import arc.util.serialization.JsonValue;
 import betterai.BetterAI;
 import betterai.log.BLog;
+import betterai.misc.Pair;
 import mindustry.Vars;
 import mindustry.content.*;
 import mindustry.entities.bullet.BulletType;
 import mindustry.type.*;
 import mindustry.world.Block;
+import mindustry.world.blocks.campaign.*;
 import mindustry.world.blocks.defense.Wall;
 import mindustry.world.blocks.defense.turrets.ItemTurret;
+import mindustry.world.blocks.distribution.*;
 import mindustry.world.blocks.environment.*;
+import mindustry.world.blocks.heat.*;
+import mindustry.world.blocks.liquid.LiquidBlock;
+import mindustry.world.blocks.payloads.PayloadSource;
 import mindustry.world.blocks.power.ConsumeGenerator;
 import mindustry.world.blocks.production.*;
+import mindustry.world.blocks.storage.CoreBlock;
 import mindustry.world.consumers.*;
 import pyguy.jsonlib.JsonLibWrapper;
 
 public class ContentScore
 {
+    private static final ObjectMap<Item, Seq<GenericCrafter>> itemProducers = new ObjectMap<>();
+    private static final ObjectMap<Item, Seq<Item>> itemCraftingPaths = new ObjectMap<>();
     private static float[] itemScores;
     private static float[] liquidScores;
     private static float[] blockScores;
-
-    private static final ObjectMap<Item, Seq<GenericCrafter>> itemProducers = new ObjectMap<>();
-    private static final ObjectMap<Item, Seq<Item>> itemCraftingPaths = new ObjectMap<>();
     private static boolean[] visitedItemRoot;
+
+    private static final float duoGraphiteBulletDamage = ((ItemTurret) Blocks.duo).ammoTypes.get(Items.graphite).damage;
 
     private static float itemLiquidScoreCapValue = 0f; // Liquids basically never reach this value, but just in case
 
@@ -337,7 +346,8 @@ public class ContentScore
             if (scoringTypes != null && scoringTypes.has(block.name))
             {
                 scoreType = BlockScoreType.valueOf(scoringTypes.getString(block.name));
-            } else
+            }
+            else
             {
                 String moddedScoreType = JsonLibWrapper.GetStringField(block.name, "betterai-block-score-type");
 
@@ -348,15 +358,22 @@ public class ContentScore
             }
 
             blockScoreTypes[block.id] = scoreType;
+
+            Pair<BlockDynamicScoreType, Float> blockInfo = GetBlockInfo(block, scoreType);
+
+            blockScores[block.id] = blockInfo.second;
         }
     }
 
-    private static float GetBlockBaseScore(Block block, BlockScoreType scoreType)
+    private static Pair<BlockDynamicScoreType, Float> GetBlockInfo(Block block, BlockScoreType scoreType)
     {
-        return Math.min(100, switch (scoreType)
+        BlockDynamicScoreType dynamicScoreType = BlockDynamicScoreType.constant;
+
+        float score = switch (scoreType)
         {
             case wall -> (block.health <= 0 ? block.scaledHealth * block.size * block.size : block.health) / 400f;
-            case powerdistributor -> {
+            case powerdistributor ->
+            {
                 if (block.hasPower)
                 {
                     float capacity = 0;
@@ -371,6 +388,8 @@ public class ContentScore
                         }
                     }
 
+                    dynamicScoreType = BlockDynamicScoreType.powerGrid;
+
                     yield (capacity / batteryCapacity) * 10f; // One battery has a score of 10
                 }
                 else
@@ -378,28 +397,104 @@ public class ContentScore
                     yield 0;
                 }
             }
-            case storage -> {
+            case storage ->
+            {
                 float baseScore = 0f;
                 if (block.hasItems) baseScore += ((float) block.itemCapacity / Blocks.vault.itemCapacity) * 5f;
                 if (block.hasLiquids) baseScore += (block.liquidCapacity / Blocks.liquidContainer.liquidCapacity) * 2f;
 
+                dynamicScoreType = BlockDynamicScoreType.single;
+
                 yield baseScore;
             }
-            case logic -> 1; // Who uses logic blocks anyway
-            case core -> 50;
-            case defense -> 60;
-            case ignore, manual -> 0;
-            case automatic -> {
-                float baseScore = 0f;
+            case logic -> 1f; // Who uses logic blocks anyway
+            case core ->
+                    10f; // Low priority, since the only units going for the core intentionally are frontline and destroyer units
+            case defense -> 60f;
+            case ignore, manual -> 0f;
+            case automatic ->
+            {
+                float baseScore = 1f;
 
-                if (block instanceof Wall wall)
+                // NOTE Campaign
+                if (block instanceof Accelerator || block instanceof LaunchPad)
                 {
-                    baseScore *= (1f - wall.lightningChance) * (1f - wall.chanceDeflect);
+                    baseScore = 20f;
+                }
+                // TODO Defense
+                else if (block instanceof Wall wall)
+                {
+                    baseScore = 15f * Math.max(0.1f, (1f - Math.max(0f, wall.lightningChance)) * (1f -Math.max(0f, wall.chanceDeflect) / duoGraphiteBulletDamage));
+                }
+                // NOTE Distribution
+                else if (block instanceof Conveyor conveyor)
+                {
+                    baseScore = conveyor.displayedSpeed;
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof Duct duct)
+                {
+                    baseScore = 60f / duct.speed;
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof StackConveyor stackConveyor)
+                {
+                    baseScore = Mathf.round(stackConveyor.itemCapacity * stackConveyor.speed * 60) * 0.75f;
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof ItemBridge || block instanceof DirectionBridge)
+                {
+                    baseScore = 5f;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof Router router)
+                {
+                    baseScore = router.speed;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof DuctRouter ductRouter)
+                {
+                    baseScore = ductRouter.speed;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof Junction || block instanceof OverflowGate || block instanceof Sorter || block instanceof OverflowDuct)
+                {
+                    baseScore = 5f;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                // NOTE Heat
+                else if (block instanceof HeatProducer || block instanceof HeatConductor)
+                {
+                    baseScore = 10f;
+                }
+                // NOTE Liquid
+                else if (block instanceof LiquidBlock liquidBlock)
+                {
+                    baseScore = liquidBlock.liquidCapacity / 50f;
+
+                    dynamicScoreType = BlockDynamicScoreType.single;
+                }
+                // NOTE Logic (who uses logic blocks anyway)
+                // NOTE Payload
+                else if (block instanceof PayloadSource)
+                {
+                    baseScore = 100f;
+                }
+                // NOTE Storage
+                else if (block instanceof CoreBlock)
+                {
+                    baseScore = 10f;
                 }
 
                 yield baseScore;
             }
-        });
+        };
+
+        return new Pair<>(dynamicScoreType, Mathf.clamp(score, 0f, 100f));
     }
 
     // Normalize the scores to a 0-100 scale

@@ -131,7 +131,9 @@ public class UnitRoles
             {
                 output = healthSpeedFactor >= atraxHealthSpeedFactor ? UnitRole.frontline : UnitRole.squadfollower;
             }
-        } else {
+        }
+        else
+        {
             if (heals) output = UnitRole.frontlineheal;
             else
             {
