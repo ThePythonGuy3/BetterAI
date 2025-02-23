@@ -17,19 +17,39 @@ import mindustry.world.blocks.environment.*;
 
 public class TargetOverlay extends BaseOverlay
 {
+    private static final String[] dynamicScoreTypeIconNames = new String[]
+            {
+                    "power-grid",
+                    "item-graph",
+                    "payload-crafter",
+                    "single",
+                    "constant"
+            };
+
     private final Rect cameraRect = new Rect();
     private final Rect drawRect = new Rect();
-    private NinePatch targetRegion;
+
+    private static TextureRegion[] dynamicScoreTypeIcons;
+    private static NinePatch targetRegion;
+
     private boolean shown = false;
+
+    @Override
+    public void load()
+    {
+        targetRegion = new NinePatch(Core.atlas.find("betterai-target"), 3, 3, 3, 3);
+
+        dynamicScoreTypeIcons = new TextureRegion[dynamicScoreTypeIconNames.length];
+        for (int i = 0; i < dynamicScoreTypeIconNames.length; i++)
+        {
+            dynamicScoreTypeIcons[i] = Core.atlas.find("betterai-" + dynamicScoreTypeIconNames[i]);
+        }
+    }
 
     @Override
     public void init()
     {
-        shown = BetterAI.debug;
-
-        targetRegion = new NinePatch(Core.atlas.find("betterai-target"), 3, 3, 3, 3);
-
-        InputRegister.Register(KeyCode.k, () -> shown = !shown);
+        if (!Vars.headless && BetterAI.debug) InputRegister.Register(KeyCode.k, () -> shown = !shown);
     }
 
     @Override
@@ -64,6 +84,10 @@ public class TargetOverlay extends BaseOverlay
                         targetRegion.draw(drawRect.x, drawRect.y, drawRect.width, drawRect.height);
 
                         DrawText.Draw(String.valueOf((int) score), drawRect.x + 1, drawRect.y + 1, DrawText.flagOutline, 0.5f);
+
+                        Draw.color(Color.white);
+
+                        Draw.rect(dynamicScoreTypeIcons[ContentScore.GetBlockDynamicScoreType(build.block()).ordinal()], drawRect.x + drawRect.width - 2f, drawRect.y + drawRect.height - 2f, 3f, 3f);
 
                         Draw.color(preColor);
                     }

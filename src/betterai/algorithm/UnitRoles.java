@@ -20,21 +20,26 @@ public class UnitRoles
                     "frontline",
                     "frontline-heal"
             };
-    private static final TextureRegion[] roleIcons = new TextureRegion[UnitRole.values().length];
+    private static TextureRegion[] roleIcons;
     private static UnitRole[] roles;
 
     private static float fortressDPS = 0f, polyDPS = 0f, atraxHealthSpeedFactor = 0f;
+
+    public static void LoadContent()
+    {
+        roleIcons = new TextureRegion[roleIconNames.length];
+
+        for (int i = 0; i < roleIconNames.length; i++)
+        {
+            roleIcons[i] = Core.atlas.find("betterai-" + roleIconNames[i]);
+        }
+    }
 
     public static void Initialize()
     {
         fortressDPS = GetDps(UnitTypes.fortress);
         polyDPS = GetDps(UnitTypes.poly);
         atraxHealthSpeedFactor = GetHealthSpeedFactor(UnitTypes.atrax);
-
-        for (UnitRole role : UnitRole.values())
-        {
-            roleIcons[role.ordinal()] = Core.atlas.find("betterai-" + roleIconNames[role.ordinal()]);
-        }
 
         roles = new UnitRole[Vars.content.units().size];
 

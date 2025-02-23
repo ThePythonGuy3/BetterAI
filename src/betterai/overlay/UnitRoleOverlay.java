@@ -9,6 +9,11 @@ import mindustry.type.UnitType;
 
 public class UnitRoleOverlay extends BaseOverlay
 {
+    @Override
+    public void load()
+    {
+
+    }
 
     @Override
     public void init()

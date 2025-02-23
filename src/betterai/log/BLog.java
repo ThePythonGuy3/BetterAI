@@ -2,7 +2,7 @@ package betterai.log;
 
 import arc.util.Log;
 
-// Extend arc.util.Log prepending [BetterAI] to all log messages
+// Extends arc.util.Log prepending [BetterAI] to all log messages
 public class BLog
 {
     private static final String PREFIX = "[BetterAI] ";

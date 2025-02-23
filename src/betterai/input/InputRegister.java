@@ -13,8 +13,10 @@ public class InputRegister
 
     public static void Initialize()
     {
+        if (Vars.headless) return;
+
         Events.run(EventType.Trigger.update, () -> {
-            if (!Vars.state.isGame()) return;
+            if (!Vars.state.isGame() || Vars.state.isPaused()) return;
 
             for (KeyCode key : heldMap.keys())
             {
@@ -36,6 +38,8 @@ public class InputRegister
 
     public static void Register(KeyCode key, Runnable runnable)
     {
+        if (Vars.headless) return;
+
         heldMap.put(key, false);
 
         runnableMap.put(key, runnable);
@@ -43,6 +47,8 @@ public class InputRegister
 
     public static void Unregister(KeyCode key)
     {
+        if (Vars.headless) return;
+
         heldMap.remove(key);
         runnableMap.remove(key);
     }

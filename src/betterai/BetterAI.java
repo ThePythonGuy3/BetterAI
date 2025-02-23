@@ -28,9 +28,12 @@ public class BetterAI extends Mod
 
         InputRegister.Initialize();
 
-        if (debug) InputRegister.Register(KeyCode.y, () -> Vars.ui.hudfrag.shown = !Vars.ui.hudfrag.shown);
+        if (!Vars.headless && debug) InputRegister.Register(KeyCode.y, () -> Vars.ui.hudfrag.shown = !Vars.ui.hudfrag.shown);
 
         Events.on(EventType.ClientLoadEvent.class, event -> {
+            Overlays.LoadContent();
+            UnitRoles.LoadContent();
+
             ContentScore.Initialize();
             UnitRoles.Initialize();
 

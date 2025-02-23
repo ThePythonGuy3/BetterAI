@@ -8,8 +8,20 @@ public class Overlays
 {
     private static final BaseOverlay[] overlays = new BaseOverlay[]{new TargetOverlay(), new UnitRoleOverlay()};
 
+    public static void LoadContent()
+    {
+        if (Vars.headless) return;
+
+        for (BaseOverlay overlay : overlays)
+        {
+            overlay.load();
+        }
+    }
+
     public static void Initialize()
     {
+        if (Vars.headless) return;
+
         for (BaseOverlay overlay : overlays)
         {
             overlay.init();
