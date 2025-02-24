@@ -17,15 +17,18 @@ import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.blocks.distribution.*;
 import mindustry.world.blocks.environment.*;
 import mindustry.world.blocks.heat.*;
-import mindustry.world.blocks.liquid.LiquidBlock;
+import mindustry.world.blocks.liquid.*;
 import mindustry.world.blocks.logic.*;
 import mindustry.world.blocks.payloads.*;
 import mindustry.world.blocks.power.*;
 import mindustry.world.blocks.production.*;
 import mindustry.world.blocks.sandbox.*;
-import mindustry.world.blocks.storage.CoreBlock;
+import mindustry.world.blocks.storage.*;
+import mindustry.world.blocks.units.*;
 import mindustry.world.consumers.*;
 import pyguy.jsonlib.JsonLibWrapper;
+
+import java.util.ArrayList;
 
 public class ContentScore
 {
@@ -35,6 +38,8 @@ public class ContentScore
     private static float[] liquidScores;
     private static float[] blockScores;
     private static boolean[] visitedItemRoot;
+
+    private static Item[][] itemsByHardness;
 
     private static final float duoGraphiteBulletDamage = ((ItemTurret) Blocks.duo).ammoTypes.get(Items.graphite).damage;
 
@@ -89,6 +94,8 @@ public class ContentScore
             }
         }
 
+        GetHardnessValues();
+
         GenerateItemLiquidScores();
         GenerateBlockScores();
 
@@ -112,6 +119,30 @@ public class ContentScore
                 BLog.info(Vars.content.liquid(i).localizedName, "->", liquidScores[i]);
             }
         }
+    }
+
+    private static void GetHardnessValues()
+    {
+        ArrayList<ArrayList<Item>> itemsByHardnessList = new ArrayList<>();
+
+        for (Item item : Vars.content.items())
+        {
+            while (item.hardness > itemsByHardnessList.size())
+            {
+                itemsByHardnessList.add(new ArrayList<>());
+            }
+
+            itemsByHardnessList.get(Math.max(0, item.hardness - 1)).add(item);
+        }
+
+        itemsByHardness = new Item[itemsByHardnessList.size()][];
+
+        for (int i = 0; i < itemsByHardnessList.size(); i++)
+        {
+            itemsByHardness[i] = itemsByHardnessList.get(i).toArray(new Item[0]);
+        }
+
+        BLog.info("Items by hardness: " + itemsByHardnessList);
     }
 
     private static void GenerateItemLiquidScores()
@@ -393,6 +424,15 @@ public class ContentScore
         return (float) Math.pow(capacity / batteryCapacity, 1 / 5f) * 10f;
     }
 
+    private static float GetStorageBlockScore(Block block)
+    {
+        float baseScore = 0f;
+        if (block.hasItems) baseScore += ((float) block.itemCapacity / Blocks.vault.itemCapacity) * 5f;
+        if (block.hasLiquids) baseScore += (block.liquidCapacity / Blocks.liquidContainer.liquidCapacity) * 2f;
+
+        return baseScore;
+    }
+
     private static Pair<BlockDynamicScoreType, Float> GetBlockInfo(Block block, BlockScoreType scoreType)
     {
         BlockDynamicScoreType dynamicScoreType = BlockDynamicScoreType.constant;
@@ -415,13 +455,9 @@ public class ContentScore
             }
             case storage ->
             {
-                float baseScore = 0f;
-                if (block.hasItems) baseScore += ((float) block.itemCapacity / Blocks.vault.itemCapacity) * 5f;
-                if (block.hasLiquids) baseScore += (block.liquidCapacity / Blocks.liquidContainer.liquidCapacity) * 2f;
-
                 dynamicScoreType = BlockDynamicScoreType.single;
 
-                yield baseScore;
+                yield GetStorageBlockScore(block);
             }
             case logic -> 2f; // Who uses logic blocks anyway
             case core -> 10f; // Low priority, since the only units going for the core intentionally are frontline and destroyer units
@@ -461,7 +497,7 @@ public class ContentScore
                 {
                     baseScore = 5f;
 
-                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                    dynamicScoreType = (block instanceof LiquidBridge) ? BlockDynamicScoreType.liquidGraph : BlockDynamicScoreType.itemGraph;
                 }
                 else if (block instanceof Router router)
                 {
@@ -491,7 +527,17 @@ public class ContentScore
                 {
                     baseScore = (float) Math.pow(liquidBlock.liquidCapacity, 1 / 3f) * 0.75f;
 
-                    dynamicScoreType = BlockDynamicScoreType.single;
+                    if (block instanceof Pump pump)
+                    {
+                        baseScore += 10f * pump.pumpAmount * pump.size * pump.size;
+
+                        if (block instanceof SolidPump solidPump)
+                        {
+                            baseScore = baseScore * 0.7f + liquidScores[solidPump.result.id] * 0.3f;
+                        }
+                    }
+
+                    dynamicScoreType = BlockDynamicScoreType.liquidGraph;
                 }
                 // NOTE Logic
                 else if (block instanceof LogicBlock || block instanceof CanvasBlock || block instanceof LogicDisplay || block instanceof MemoryBlock || block instanceof MessageBlock || block instanceof SwitchBlock)
@@ -518,6 +564,19 @@ public class ContentScore
                     else if (block instanceof PayloadMassDriver payloadMassDriver)
                     {
                         baseScore += payloadMassDriver.maxPayloadSize + 10f / (payloadMassDriver.chargeTime + payloadMassDriver.reload) + payloadMassDriver.range / 20f;
+                    }
+                    else if (block instanceof UnitBlock)
+                    {
+                        dynamicScoreType = BlockDynamicScoreType.payloadCrafter;
+
+                        if (block instanceof UnitFactory unitFactory)
+                        {
+                            // TODO Implement unit score lib
+                        }
+                        else if (block instanceof Reconstructor reconstructor)
+                        {
+                            // TODO Implement unit score lib
+                        }
                     }
                 }
                 else if (block instanceof PayloadConveyor payloadConveyor)
@@ -552,7 +611,6 @@ public class ContentScore
                     }
 
                     dynamicScoreType = BlockDynamicScoreType.powerGrid;
-
                 }
                 // NOTE Production
                 else if (block instanceof GenericCrafter genericCrafter)
@@ -574,14 +632,14 @@ public class ContentScore
                         }
                     }
 
-                    avgItemScore /= itemCount;
+                    if (itemCount > 0f) avgItemScore /= itemCount;
 
                     float avgLiquidScore = 0f;
                     float liquidAmount = 0f;
                     if (genericCrafter.outputLiquid != null)
                     {
                         avgLiquidScore = liquidScores[genericCrafter.outputLiquid.liquid.id];
-                        liquidAmount = genericCrafter.outputLiquid.amount;
+                        liquidAmount = 1f;
                     }
                     else if (genericCrafter.outputLiquids != null)
                     {
@@ -592,15 +650,98 @@ public class ContentScore
                         }
                     }
 
-                    avgLiquidScore /= liquidAmount;
+                    if (liquidAmount > 0f) avgLiquidScore /= liquidAmount;
 
-                    baseScore = avgItemScore + avgLiquidScore;
+                    if (avgItemScore > 0f) baseScore = avgItemScore * 0.8f;
+                    else baseScore = avgLiquidScore * 0.5f;
+
+                    baseScore += Math.min(20f, 60f / genericCrafter.craftTime * (avgItemScore > 0f ? 1f : 0.5f));
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof BeamDrill beamDrill)
+                {
+                    baseScore = 5f * (60f / beamDrill.drillTime * beamDrill.size * beamDrill.size);
+
+                    float maxItemScore = 0f;
+                    for (int i = 0; i < beamDrill.tier && i < itemsByHardness.length; i++)
+                    {
+                        for (Item item : itemsByHardness[i])
+                        {
+                            if (itemScores[item.id] > maxItemScore) maxItemScore = itemScores[item.id];
+                        }
+                    }
+
+                    baseScore += maxItemScore / 10f;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof Drill drill)
+                {
+                    baseScore = 6f * (60f / drill.drillTime * drill.size * drill.size);
+
+                    float maxItemScore = 0f;
+                    for (int i = 0; i < drill.tier && i < itemsByHardness.length; i++)
+                    {
+                        for (Item item : itemsByHardness[i])
+                        {
+                            if (item != drill.blockedItem && itemScores[item.id] > maxItemScore) maxItemScore = itemScores[item.id];
+                        }
+                    }
+
+                    baseScore += maxItemScore / 10f;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof Separator separator)
+                {
+                    float avgItemScore = 0f;
+                    int itemCount = 0;
+                    if (separator.results != null)
+                    {
+                        for (ItemStack stack : separator.results)
+                        {
+                            int count = stack.amount;
+                            avgItemScore += itemScores[stack.item.id] * count;
+                            itemCount += count;
+                        }
+                    }
+
+                    avgItemScore /= itemCount;
+
+                    baseScore = avgItemScore / 5f + 120f / separator.craftTime;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof WallCrafter wallCrafter)
+                {
+                    baseScore = itemScores[wallCrafter.output.id] / 5f + 120f / wallCrafter.drillTime;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
                 }
                 // NOTE Storage
                 else if (block instanceof CoreBlock)
                 {
-                    baseScore = 10f;
+                    baseScore = 10f + block.health / 100f;
                 }
+                else if (block instanceof StorageBlock)
+                {
+                    baseScore = GetStorageBlockScore(block);
+
+                    dynamicScoreType = BlockDynamicScoreType.single;
+                }
+                else if (block instanceof Unloader unloader)
+                {
+                    baseScore = 10f + unloader.speed * 2f;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                // NOTE Units
+                else if (block instanceof RepairTower repairTower)
+                {
+                    baseScore = Math.min(25f, repairTower.range / 4f) + (float)  Math.sqrt(repairTower.healAmount * 80f) * 2.5f;
+                }
+
 
                 // NOTE Sandbox
                 if (block instanceof PayloadSource || block instanceof ItemSource || block instanceof LiquidSource || block instanceof PowerSource || block == Blocks.heatSource)
@@ -661,6 +802,7 @@ public class ContentScore
     {
         powerGrid, // Priority increases on the importance of the power grid it's attached to
         itemGraph, // Priority increases on the importance of the blocks it provides items to
+        liquidGraph, // Priority increases on the importance of the blocks it provides liquids to
         payloadCrafter, // Priority increases according to the importance of the payload it crafts
         single, // Priority is calculated based on the building's own stats
         constant // Priority does not change based on the building's stats or environment

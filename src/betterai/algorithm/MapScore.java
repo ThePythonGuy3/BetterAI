@@ -1,87 +1,107 @@
 package betterai.algorithm;
 
+import arc.Events;
 import arc.struct.*;
 import betterai.log.BLog;
 import mindustry.Vars;
-import mindustry.game.Team;
+import mindustry.game.*;
 import mindustry.gen.Building;
 import mindustry.world.Tile;
-import mindustry.world.blocks.storage.CoreBlock;
+import mindustry.world.blocks.environment.*;
 
 public class MapScore
 {
     private static Seq<Team> teams;
-    private static byte[] scores;
+
+    private static ObjectMap<Building, Float> buildingScores;
 
     private static int worldWidth, worldHeight;
 
+    private static ObjectMap<Tile, Building> tileBuildings = new ObjectMap<>();
+
     public static void Initialize()
     {
+        Events.on(EventType.WorldLoadEvent.class, event -> WorldLoaded());
+
+        Events.on(EventType.TilePreChangeEvent.class, event -> TilePreChanged(event.tile));
+        Events.on(EventType.TileChangeEvent.class, event -> TileChanged(event.tile));
+    }
+
+    private static void WorldLoaded()
+    {
         teams = new Seq<>();
+        buildingScores = new ObjectMap<>();
 
         for (Tile tile : Vars.world.tiles)
         {
-            if (tile != null && tile.block() != null && tile.block() instanceof CoreBlock)
+            if (tile != null && tile.block() != null)
             {
                 Team team = tile.team();
 
-                if (!teams.contains(team))
-                {
-                    teams.add(team);
-                }
+                if (!teams.contains(team)) teams.add(team);
+
+                if (tile.build != null) AddBuilding(tile.build);
             }
         }
 
         worldWidth = Vars.world.width();
         worldHeight = Vars.world.height();
-        scores = new byte[worldWidth * worldHeight * teams.size];
     }
 
-    private static int indexOf(Team team, int x, int y)
+    private static void TilePreChanged(Tile tile)
     {
-        return x + y * worldWidth + teams.indexOf(team) * worldWidth * worldHeight;
-    }
-
-    private static byte GetScoresIn(Team team, int x, int y)
-    {
-        if (!teams.contains(team))
+        if (tile != null)
         {
-            return (byte) 0b1111_1111; // Maximum score for a team that doesn't exist
+            tileBuildings.put(tile, tile.build);
         }
-
-        return scores[indexOf(team, x, y)];
     }
 
-    public static int GetTargetScore(Team team, int x, int y)
+    private static void TileChanged(Tile tile)
     {
-        return GetScoresIn(team, x, y) & 0b0000_1111;
-    }
-
-    public static int GetDangerScore(Team team, int x, int y)
-    {
-        return GetScoresIn(team, x, y) >> 4;
-    }
-
-    private static void SetTargetScore(Team team, int x, int y, int score)
-    {
-        if (!teams.contains(team))
+        if (tile != null && tileBuildings.containsKey(tile))
         {
-            return;
-        }
+            if (tile.build == null && tileBuildings.get(tile) != null)
+            {
+                RemoveBuilding(tileBuildings.get(tile));
+            }
+            else if (tile.build != null && tileBuildings.get(tile) == null)
+            {
+                AddBuilding(tile.build);
+            }
+            else if (tile.build != null)
+            {
+                RemoveBuilding(tileBuildings.get(tile));
+                AddBuilding(tile.build);
+            }
 
-        int index = indexOf(team, x, y);
-        scores[index] = (byte) ((scores[index] & 0b1111_0000) | (score & 0b0000_1111));
+            tileBuildings.remove(tile);
+        }
     }
 
-    private static void SetDangerScore(Team team, int x, int y, int score)
+    private static void AddBuilding(Building building)
     {
-        if (!teams.contains(team))
+        if (!(building.block() instanceof Floor) && !(building.block() instanceof Prop) && !buildingScores.containsKey(building))
         {
-            return;
+            buildingScores.put(building, ContentScore.GetBlockScore(building.block()));
         }
+    }
 
-        int index = indexOf(team, x, y);
-        scores[index] = (byte) ((scores[index] & 0b0000_1111) | ((score << 4) & 0b1111_0000));
+    private static void RemoveBuilding(Building building)
+    {
+        if (buildingScores.containsKey(building))
+        {
+            buildingScores.remove(building);
+        }
+    }
+
+    public static ObjectMap.Keys<Building> GetBuildings()
+    {
+        return buildingScores.keys();
+    }
+
+    public static float GetBuildingScore(Building building)
+    {
+        return buildingScores.containsKey(building) ? buildingScores.get(building) : 0f;
     }
 
     public void EvaluateEntireMap()

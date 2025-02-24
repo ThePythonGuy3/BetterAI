@@ -6,14 +6,13 @@ import arc.graphics.g2d.*;
 import arc.input.KeyCode;
 import arc.math.geom.Rect;
 import betterai.BetterAI;
-import betterai.algorithm.ContentScore;
+import betterai.algorithm.*;
 import betterai.input.InputRegister;
 import mindustry.Vars;
 import mindustry.game.*;
-import mindustry.gen.Buildingc;
+import mindustry.gen.*;
 import mindustry.graphics.Layer;
 import mindustry.world.*;
-import mindustry.world.blocks.environment.*;
 
 public class TargetOverlay extends BaseOverlay
 {
@@ -21,16 +20,24 @@ public class TargetOverlay extends BaseOverlay
             {
                     "power-grid",
                     "item-graph",
+                    "liquid-graph",
                     "payload-crafter",
                     "single",
                     "constant"
             };
 
-    private final Rect cameraRect = new Rect();
-    private final Rect drawRect = new Rect();
+    private static final Color[] targetColors = new Color[]
+            {
+                    Team.green.color,
+                    Team.sharded.color,
+                    Team.crux.color
+            };
 
     private static TextureRegion[] dynamicScoreTypeIcons;
     private static NinePatch targetRegion;
+
+    private final Rect cameraRect = new Rect();
+    private final Rect drawRect = new Rect();
 
     private boolean shown = false;
 
@@ -60,37 +67,34 @@ public class TargetOverlay extends BaseOverlay
         Draw.draw(Layer.groundUnit - 1, () -> {
             Core.camera.bounds(cameraRect);
 
-            for (Tile tile : Vars.world.tiles)
+            for (Building build : MapScore.GetBuildings())
             {
-                Block block = tile.block();
+                Block block = build.block();
+                
+                int blockSize = block.size;
 
-                if (block == null || block instanceof Floor || block instanceof Prop) continue;
-                Buildingc build = tile.build;
+                drawRect.set(build.x() - blockSize / 2f * Vars.tilesize, build.y() - blockSize / 2f * Vars.tilesize, block.size * Vars.tilesize, block.size * Vars.tilesize);
 
-                if (build != null)
+                if (cameraRect.overlaps(drawRect))
                 {
-                    int blockSize = build.block().size;
+                    Color preColor = Draw.getColor();
 
-                    drawRect.set(build.x() - blockSize / 2f * Vars.tilesize, build.y() - blockSize / 2f * Vars.tilesize, build.block().size * Vars.tilesize, build.block().size * Vars.tilesize);
+                    Draw.color(Color.white);
 
-                    if (cameraRect.overlaps(drawRect))
-                    {
-                        Color preColor = Draw.getColor();
+                    float score = MapScore.GetBuildingScore(build);
 
-                        float score = ContentScore.GetBlockScore(build.block());
-                        Draw.color(Team.green.color, Team.crux.color, score / 100f);
-                        Draw.alpha(0.75f);
+                    Draw.color(Team.green.color, Team.sharded.color, Team.crux.color, score / 100f);
+                    Draw.alpha(0.75f);
 
-                        targetRegion.draw(drawRect.x, drawRect.y, drawRect.width, drawRect.height);
+                    targetRegion.draw(drawRect.x, drawRect.y, drawRect.width, drawRect.height);
 
-                        DrawText.Draw(String.valueOf((int) score), drawRect.x + 1, drawRect.y + 1, DrawText.flagOutline, 0.5f);
+                    DrawText.Draw(String.valueOf((int) score), drawRect.x + 1, drawRect.y + 1, DrawText.flagOutline, 0.5f);
 
-                        Draw.color(Color.white);
+                    Draw.color();
 
-                        Draw.rect(dynamicScoreTypeIcons[ContentScore.GetBlockDynamicScoreType(build.block()).ordinal()], drawRect.x + drawRect.width - 2f, drawRect.y + drawRect.height - 2f, 3f, 3f);
+                    Draw.rect(dynamicScoreTypeIcons[ContentScore.GetBlockDynamicScoreType(block).ordinal()], drawRect.x + drawRect.width - 2f, drawRect.y + drawRect.height - 2f, 3f, 3f);
 
-                        Draw.color(preColor);
-                    }
+                    Draw.color(preColor);
                 }
             }
         });

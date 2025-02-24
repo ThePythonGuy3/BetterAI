@@ -37,6 +37,8 @@ public class BetterAI extends Mod
             ContentScore.Initialize();
             UnitRoles.Initialize();
 
+            MapScore.Initialize();
+
             Overlays.Initialize();
         });
     }
