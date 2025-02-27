@@ -741,6 +741,10 @@ public class ContentScore
                 {
                     baseScore = Math.min(25f, repairTower.range / 4f) + (float)  Math.sqrt(repairTower.healAmount * 80f) * 2.5f;
                 }
+                else if (block instanceof RepairTurret repairTurret)
+                {
+                    baseScore = (float) Math.sqrt(repairTurret.repairRadius / Vars.tilesize * 3f) * 2f + repairTurret.repairSpeed * 12f;
+                }
 
 
                 // NOTE Sandbox

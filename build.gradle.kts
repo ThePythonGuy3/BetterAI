@@ -21,6 +21,7 @@ plugins{
     java
 }
 
+val jsonLibVersion: String by project
 val arcVersion: String by project
 val mindustryVersion: String by project
 val mindustryBEVersion: String by project
@@ -66,6 +67,7 @@ allprojects{
         mavenCentral()
         maven("https://oss.sonatype.org/content/repositories/snapshots/")
         maven("https://oss.sonatype.org/content/repositories/releases/")
+        maven("https://raw.githubusercontent.com/ThePythonGuy3/CustomJSONLibMaven/main")
 
         // Use Zelaux's non-buggy repository for release Mindustry and Arc builds.
         if(!useJitpack) maven("https://raw.githubusercontent.com/Zelaux/MindustryRepo/master/repository")
@@ -88,7 +90,7 @@ project(":"){
     dependencies{
         compileOnly(mindustry(":core"))
         compileOnly(arc(":arc-core"))
-        compileOnly(files(layout.projectDirectory.dir("lib").file("CustomJsonLib.jar")))
+        compileOnly("com.github.ThePythonGuy3.CustomJSONLib:pyguy.jsonlib:$jsonLibVersion")
     }
 
     val jar = tasks.named<Jar>("jar"){
@@ -109,7 +111,6 @@ project(":"){
         {
             into("content")
         }
-
 
         metaInf.from(layout.projectDirectory.file("LICENSE"))
         doFirst{
