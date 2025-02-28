@@ -12,7 +12,7 @@ import mindustry.entities.bullet.BulletType;
 import mindustry.type.*;
 import mindustry.world.Block;
 import mindustry.world.blocks.campaign.*;
-import mindustry.world.blocks.defense.Wall;
+import mindustry.world.blocks.defense.*;
 import mindustry.world.blocks.defense.turrets.ItemTurret;
 import mindustry.world.blocks.distribution.*;
 import mindustry.world.blocks.environment.*;
@@ -472,10 +472,19 @@ public class ContentScore
                 {
                     baseScore = 20f;
                 }
-                // TODO Defense
+                // NOTE Defense
                 else if (block instanceof Wall wall)
                 {
                     baseScore = (float) Math.pow(block.health <= 0 ? block.scaledHealth * block.size * block.size : block.health, 1 / 3f) * 1.5f * Math.max(0.1f, (1f - Math.max(0f, wall.lightningChance) * 2f) * (1f -Math.max(0f, wall.chanceDeflect) / duoGraphiteBulletDamage));
+
+                    if (block instanceof AutoDoor)
+                    {
+                        baseScore += 5f;
+                    }
+                }
+                else if (block instanceof BaseShield)
+                {
+                    baseScore = 100f; // This should give priority to beam links powering these shields
                 }
                 // NOTE Distribution
                 else if (block instanceof Conveyor conveyor)
@@ -567,8 +576,6 @@ public class ContentScore
                     }
                     else if (block instanceof UnitBlock)
                     {
-                        dynamicScoreType = BlockDynamicScoreType.payloadCrafter;
-
                         if (block instanceof UnitFactory unitFactory)
                         {
                             // TODO Implement unit score lib
@@ -577,12 +584,14 @@ public class ContentScore
                         {
                             // TODO Implement unit score lib
                         }
+
+                        dynamicScoreType = BlockDynamicScoreType.payloadCrafter;
                     }
                     else if (block instanceof UnitAssembler unitAssembler)
                     {
-                        dynamicScoreType = BlockDynamicScoreType.payloadCrafter;
-
                         // TODO Implement unit score lib
+
+                        dynamicScoreType = BlockDynamicScoreType.payloadCrafter;
                     }
                 }
                 else if (block instanceof PayloadConveyor payloadConveyor)
@@ -753,7 +762,7 @@ public class ContentScore
                 }
                 else if (block instanceof UnitCargoLoader unitCargoLoader)
                 {
-                    baseScore = 10f + (1200f / unitCargoLoader.buildTime) * 8f;
+                    baseScore = 10f + (1200f / unitCargoLoader.buildTime) * 5f;
 
                     dynamicScoreType = BlockDynamicScoreType.itemGraph;
                 }

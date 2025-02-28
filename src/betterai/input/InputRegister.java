@@ -16,7 +16,7 @@ public class InputRegister
         if (Vars.headless) return;
 
         Events.run(EventType.Trigger.update, () -> {
-            if (!Vars.state.isGame() || Vars.state.isPaused()) return;
+            if (!Vars.state.isGame() || Vars.state.isPaused() || Core.scene.hasKeyboard()) return;
 
             for (KeyCode key : heldMap.keys())
             {
