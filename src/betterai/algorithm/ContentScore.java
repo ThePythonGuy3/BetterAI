@@ -578,6 +578,12 @@ public class ContentScore
                             // TODO Implement unit score lib
                         }
                     }
+                    else if (block instanceof UnitAssembler unitAssembler)
+                    {
+                        dynamicScoreType = BlockDynamicScoreType.payloadCrafter;
+
+                        // TODO Implement unit score lib
+                    }
                 }
                 else if (block instanceof PayloadConveyor payloadConveyor)
                 {
@@ -744,6 +750,18 @@ public class ContentScore
                 else if (block instanceof RepairTurret repairTurret)
                 {
                     baseScore = (float) Math.sqrt(repairTurret.repairRadius / Vars.tilesize * 3f) * 2f + repairTurret.repairSpeed * 12f;
+                }
+                else if (block instanceof UnitCargoLoader unitCargoLoader)
+                {
+                    baseScore = 10f + (1200f / unitCargoLoader.buildTime) * 8f;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
+                }
+                else if (block instanceof UnitCargoUnloadPoint)
+                {
+                    baseScore = block.itemCapacity / 20f;
+
+                    dynamicScoreType = BlockDynamicScoreType.itemGraph;
                 }
 
 

@@ -62,12 +62,18 @@ allprojects{
         }
     }
 
+    dependencies{
+        // Downgrade Java 9+ syntax into being available in Java 8.
+        annotationProcessor("com.github.GlennFolker.EntityAnno:downgrader:$entVersion")
+    }
+
     repositories{
         // Necessary Maven repositories to pull dependencies from.
         mavenCentral()
         maven("https://oss.sonatype.org/content/repositories/snapshots/")
         maven("https://oss.sonatype.org/content/repositories/releases/")
         maven("https://raw.githubusercontent.com/ThePythonGuy3/CustomJSONLibMaven/main")
+        maven("https://raw.githubusercontent.com/GlennFolker/EntityAnnoMaven/main")
 
         // Use Zelaux's non-buggy repository for release Mindustry and Arc builds.
         if(!useJitpack) maven("https://raw.githubusercontent.com/Zelaux/MindustryRepo/master/repository")
@@ -77,7 +83,7 @@ allprojects{
     tasks.withType<JavaCompile>().configureEach{
         sourceCompatibility = "17"
         options.apply{
-            release = 17
+            release = 8
             compilerArgs.add("-Xlint:-options")
 
             isIncremental = true
