@@ -1,6 +1,6 @@
 package betterai.overlay;
 
-import arc.*;
+import arc.Core;
 import arc.graphics.Color;
 import arc.graphics.g2d.*;
 import arc.input.KeyCode;
@@ -9,10 +9,10 @@ import betterai.BetterAI;
 import betterai.algorithm.*;
 import betterai.input.InputRegister;
 import mindustry.Vars;
-import mindustry.game.*;
-import mindustry.gen.*;
+import mindustry.game.Team;
+import mindustry.gen.Building;
 import mindustry.graphics.Layer;
-import mindustry.world.*;
+import mindustry.world.Block;
 
 public class TargetOverlay extends BaseOverlay
 {
@@ -70,7 +70,7 @@ public class TargetOverlay extends BaseOverlay
             for (Building build : MapScore.GetBuildings())
             {
                 Block block = build.block();
-                
+
                 int blockSize = block.size;
 
                 drawRect.set(build.x() - blockSize / 2f * Vars.tilesize, build.y() - blockSize / 2f * Vars.tilesize, block.size * Vars.tilesize, block.size * Vars.tilesize);

@@ -17,7 +17,7 @@ public class MapScore
 
     private static int worldWidth, worldHeight;
 
-    private static ObjectMap<Tile, Building> tileBuildings = new ObjectMap<>();
+    private static final ObjectMap<Tile, Building> tileBuildings = new ObjectMap<>();
 
     public static void Initialize()
     {

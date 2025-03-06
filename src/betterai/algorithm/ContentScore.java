@@ -34,22 +34,17 @@ public class ContentScore
 {
     private static final ObjectMap<Item, Seq<GenericCrafter>> itemProducers = new ObjectMap<>();
     private static final ObjectMap<Item, Seq<Item>> itemCraftingPaths = new ObjectMap<>();
+    private static final float duoGraphiteBulletDamage = ((ItemTurret) Blocks.duo).ammoTypes.get(Items.graphite).damage;
+    private static final float thoriumReactionProduction = ((PowerGenerator) Blocks.thoriumReactor).powerProduction;
     private static float[] itemScores;
     private static float[] liquidScores;
     private static float[] blockScores;
     private static boolean[] visitedItemRoot;
-
     private static Item[][] itemsByHardness;
-
-    private static final float duoGraphiteBulletDamage = ((ItemTurret) Blocks.duo).ammoTypes.get(Items.graphite).damage;
-
     private static float itemLiquidScoreCapValue = 0f; // Liquids basically never reach this value, but just in case
-
     private static BlockScoreType[] blockScoreTypes;
     private static BlockDynamicScoreType[] blockDynamicScoreTypes;
-
     private static float batteryCapacity = 0f;
-    private static final float thoriumReactionProduction = ((PowerGenerator) Blocks.thoriumReactor).powerProduction;
 
     public static float GetItemScore(Item item)
     {
@@ -421,7 +416,7 @@ public class ContentScore
             }
         }
 
-        return (float) Math.pow(capacity / batteryCapacity, 1 / 5f) * 10f;
+        return (float) Math.pow(capacity / batteryCapacity, 1 / 5f) * 20f;
     }
 
     private static float GetStorageBlockScore(Block block)
@@ -433,20 +428,45 @@ public class ContentScore
         return baseScore;
     }
 
+    private static float FalloffFunction(float x)
+    {
+        return 100f * (1f - (float) Math.exp(-(2f * x) / 100f));
+    }
+
+    private static float GetBulletTypeTotalDamage(BulletType bulletType)
+    {
+        float baseDamage = bulletType.damage + bulletType.splashDamage;
+
+        if (bulletType.fragBullet != null)
+        {
+            baseDamage += GetBulletTypeTotalDamage(bulletType.fragBullet) * bulletType.fragBullets;
+        }
+
+        if (bulletType.intervalBullet != null)
+        {
+            float spawnLifetime = bulletType.lifetime - (bulletType.intervalDelay == -1 ? 0 : bulletType.intervalDelay);
+            float totalBullets = bulletType.intervalBullets * (spawnLifetime / bulletType.bulletInterval);
+            baseDamage += GetBulletTypeTotalDamage(bulletType.intervalBullet) * totalBullets;
+        }
+
+        return baseDamage;
+    }
+
     private static Pair<BlockDynamicScoreType, Float> GetBlockInfo(Block block, BlockScoreType scoreType)
     {
         BlockDynamicScoreType dynamicScoreType = BlockDynamicScoreType.constant;
 
         float score = switch (scoreType)
         {
-            case wall -> (float) Math.pow(block.health <= 0 ? block.scaledHealth * block.size * block.size : block.health, 1 / 3f) * 1.5f;
+            case wall ->
+                    FalloffFunction((float) Math.pow(block.health <= 0 ? block.scaledHealth * block.size * block.size : block.health, 1 / 3f) * 1.5f);
             case powerdistributor ->
             {
                 if (block.hasPower)
                 {
                     dynamicScoreType = BlockDynamicScoreType.powerGrid;
 
-                    yield GetPowerBlockScore(block); // One battery has a score of 10
+                    yield FalloffFunction(GetPowerBlockScore(block));
                 }
                 else
                 {
@@ -457,10 +477,11 @@ public class ContentScore
             {
                 dynamicScoreType = BlockDynamicScoreType.single;
 
-                yield GetStorageBlockScore(block);
+                yield FalloffFunction(GetStorageBlockScore(block));
             }
             case logic -> 2f; // Who uses logic blocks anyway
-            case core -> 10f; // Low priority, since the only units going for the core intentionally are frontline and destroyer units
+            case core ->
+                    10f; // Low priority, since the only units going for the core intentionally are frontline and destroyer units
             case defense -> 60f;
             case ignore, manual -> 0f;
             case automatic ->
@@ -475,16 +496,58 @@ public class ContentScore
                 // NOTE Defense
                 else if (block instanceof Wall wall)
                 {
-                    baseScore = (float) Math.pow(block.health <= 0 ? block.scaledHealth * block.size * block.size : block.health, 1 / 3f) * 1.5f * Math.max(0.1f, (1f - Math.max(0f, wall.lightningChance) * 2f) * (1f -Math.max(0f, wall.chanceDeflect) / duoGraphiteBulletDamage));
+                    baseScore = (float) Math.pow(block.health <= 0 ? block.scaledHealth * block.size * block.size : block.health, 1 / 3f) * 1.5f * Math.max(0.1f, (1f - Math.max(0f, wall.lightningChance) * 2f) * (1f - Math.max(0f, wall.chanceDeflect) / duoGraphiteBulletDamage));
 
-                    if (block instanceof AutoDoor)
+                    if (block instanceof AutoDoor || block instanceof Door)
                     {
                         baseScore += 5f;
+                    }
+                    else if (block instanceof ShieldWall)
+                    {
+                        baseScore -= 5f;
                     }
                 }
                 else if (block instanceof BaseShield)
                 {
                     baseScore = 100f; // This should give priority to beam links powering these shields
+                }
+                else if (block instanceof BuildTurret buildTurret)
+                {
+                    baseScore = buildTurret.buildSpeed * 10f + buildTurret.range / 20f;
+                }
+                else if (block instanceof DirectionalForceProjector directionalForceProjector)
+                {
+                    baseScore = directionalForceProjector.shieldHealth / 80f + directionalForceProjector.width / 3f;
+                }
+                else if (block instanceof ForceProjector forceProjector)
+                {
+                    baseScore = forceProjector.radius / 10f + (float) Math.sqrt(forceProjector.shieldHealth);
+                }
+                else if (block instanceof MendProjector mendProjector)
+                {
+                    baseScore = 20f + (int)(mendProjector.healPercent / (mendProjector.reload / 60f));
+                }
+                else if (block instanceof OverdriveProjector overdriveProjector)
+                {
+                    baseScore = (overdriveProjector.range / 10f) * overdriveProjector.speedBoost;
+                }
+                else if (block instanceof Radar)
+                {
+                    baseScore = 5f;
+                }
+                else if (block instanceof RegenProjector regenProjector)
+                {
+                    baseScore = 20f + (int)(regenProjector.healPercent * 60f);
+                }
+                else if (block instanceof ShockMine shockMine)
+                {
+                    // TODO are shock mines destructible at all?
+                    float mineDamage = shockMine.tendrils * shockMine.damage + (shockMine.bullet == null ? 0 : GetBulletTypeTotalDamage(shockMine.bullet) * shockMine.shots) + shockMine.damage;
+                    baseScore = (float) Math.sqrt(mineDamage) * 1.2f;
+                }
+                else if (block instanceof ShockwaveTower shockwaveTower)
+                {
+                    baseScore = shockwaveTower.range / 10f + (float) Math.sqrt(shockwaveTower.bulletDamage); // TODO
                 }
                 // NOTE Distribution
                 else if (block instanceof Conveyor conveyor)
@@ -499,7 +562,7 @@ public class ContentScore
                 }
                 else if (block instanceof StackConveyor stackConveyor)
                 {
-                    baseScore = Mathf.round(stackConveyor.itemCapacity * stackConveyor.speed * 60) * 0.75f;
+                    baseScore = (float) Math.sqrt(stackConveyor.itemCapacity * stackConveyor.speed * 60) * 0.5f;
                     dynamicScoreType = BlockDynamicScoreType.itemGraph;
                 }
                 else if (block instanceof ItemBridge || block instanceof DirectionBridge)
@@ -700,7 +763,8 @@ public class ContentScore
                     {
                         for (Item item : itemsByHardness[i])
                         {
-                            if (item != drill.blockedItem && itemScores[item.id] > maxItemScore) maxItemScore = itemScores[item.id];
+                            if (item != drill.blockedItem && itemScores[item.id] > maxItemScore)
+                                maxItemScore = itemScores[item.id];
                         }
                     }
 
@@ -754,7 +818,7 @@ public class ContentScore
                 // NOTE Units
                 else if (block instanceof RepairTower repairTower)
                 {
-                    baseScore = Math.min(25f, repairTower.range / 4f) + (float)  Math.sqrt(repairTower.healAmount * 80f) * 2.5f;
+                    baseScore = Math.min(25f, repairTower.range / 4f) + (float) Math.sqrt(repairTower.healAmount * 80f) * 2.5f;
                 }
                 else if (block instanceof RepairTurret repairTurret)
                 {
@@ -773,13 +837,6 @@ public class ContentScore
                     dynamicScoreType = BlockDynamicScoreType.itemGraph;
                 }
 
-
-                // NOTE Sandbox
-                if (block instanceof PayloadSource || block instanceof ItemSource || block instanceof LiquidSource || block instanceof PowerSource || block == Blocks.heatSource)
-                {
-                    baseScore = 100f; // Screw cheaters
-                }
-
                 // Add a maximum of 10 to the score depending on the item importance
                 float maxItemScore = 0f;
                 for (ItemStack stack : block.requirements)
@@ -788,7 +845,17 @@ public class ContentScore
                     if (itemScore > maxItemScore) maxItemScore = itemScore;
                 }
 
-                yield baseScore + maxItemScore / 10f;
+                baseScore += maxItemScore / 10f;
+
+                baseScore = FalloffFunction(baseScore);
+
+                // NOTE Sandbox
+                if (block instanceof PayloadSource || block instanceof ItemSource || block instanceof LiquidSource || block instanceof PowerSource || block == Blocks.heatSource)
+                {
+                    baseScore = 100f; // Screw cheaters
+                }
+
+                yield baseScore;
             }
         };
 
