@@ -541,13 +541,12 @@ public class ContentScore
                 }
                 else if (block instanceof ShockMine shockMine)
                 {
-                    // TODO are shock mines destructible at all?
                     float mineDamage = shockMine.tendrils * shockMine.damage + (shockMine.bullet == null ? 0 : GetBulletTypeTotalDamage(shockMine.bullet) * shockMine.shots) + shockMine.damage;
                     baseScore = (float) Math.sqrt(mineDamage) * 1.2f;
                 }
                 else if (block instanceof ShockwaveTower shockwaveTower)
                 {
-                    baseScore = shockwaveTower.range / 10f + (float) Math.sqrt(shockwaveTower.bulletDamage); // TODO
+                    baseScore = shockwaveTower.range / 10f + (shockwaveTower.bulletDamage / duoGraphiteBulletDamage) * (60f / shockwaveTower.reload);
                 }
                 // NOTE Distribution
                 else if (block instanceof Conveyor conveyor)
